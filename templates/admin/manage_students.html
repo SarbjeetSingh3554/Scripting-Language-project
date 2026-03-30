@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}Manage Students{% endblock %}
+
+{% block navbar %}
+<nav class="navbar navbar-glass navbar-expand-lg py-2">
+    <div class="container">
+        <a class="navbar-brand fw-bold" href="{{ url_for('admin_dashboard') }}">
+            <i class="bi bi-shield-lock me-2" style="color:#667eea;"></i>Admin Panel
+        </a>
+        <div class="d-flex align-items-center gap-2">
+            <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-glow btn-sm"><i class="bi bi-grid me-1"></i> Dashboard</a>
+            <a href="{{ url_for('manage_teachers') }}" class="btn btn-outline-glow btn-sm"><i class="bi bi-person-badge me-1"></i> Teachers</a>
+            <a href="{{ url_for('logout') }}" class="btn btn-sm" style="color:#f5576c;"><i class="bi bi-box-arrow-right me-1"></i> Logout</a>
+        </div>
+    </div>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <h3 class="fw-bold mb-0"><i class="bi bi-people me-2" style="color:#667eea;"></i>Manage Students</h3>
+    <button class="btn btn-glow btn-sm" data-bs-toggle="modal" data-bs-target="#addStudentModal">
+        <i class="bi bi-plus-lg me-1"></i> Add Student
+    </button>
+</div>
+
+<div class="glass-card p-0 overflow-hidden">
+    <table class="table table-glass table-hover mb-0">
+        <thead>
+            <tr><th>#</th><th>Name</th><th>Roll No</th><th>Branch</th><th>Year</th><th>Face Data</th><th></th></tr>
+        </thead>
+        <tbody>
+            {% for s in students %}
+            <tr>
+                <td>{{ loop.index }}</td>
+                <td class="fw-semibold">{{ s.name }}</td>
+                <td><code>{{ s.roll_no }}</code></td>
+                <td>{{ s.branch }}</td>
+                <td>{{ s.year }}</td>
+                <td>
+                    {% if s.face_encoding %}
+                        <span class="badge bg-success bg-opacity-25 text-success"><i class="bi bi-check-circle me-1"></i>Trained</span>
+                    {% else %}
+                        <span class="badge bg-warning bg-opacity-25 text-warning"><i class="bi bi-exclamation-triangle me-1"></i>Not set</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <form method="POST" style="display:inline;">
+                        <input type="hidden" name="action" value="delete">
+                        <input type="hidden" name="student_id" value="{{ s.student_id }}">
+                        <button type="submit" class="btn btn-sm" style="color:#f5576c;" onclick="return confirm('Delete this student?')">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </form>
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="7" class="text-center text-secondary py-4">No students found. Add one above.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Add Student Modal -->
+<div class="modal fade" id="addStudentModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="background:#1a1a3e;border:1px solid var(--glass-border);border-radius:16px;">
+            <div class="modal-header border-0">
+                <h5 class="modal-title fw-bold"><i class="bi bi-person-plus me-2" style="color:#667eea;"></i>Add Student</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST">
+                <div class="modal-body">
+                    <input type="hidden" name="action" value="add">
+                    <div class="mb-3"><label class="form-label small text-secondary">Full Name</label><input type="text" class="form-control" name="name" required></div>
+                    <div class="mb-3"><label class="form-label small text-secondary">Roll No</label><input type="text" class="form-control" name="roll_no" required></div>
+                    <div class="row">
+                        <div class="col-8 mb-3"><label class="form-label small text-secondary">Branch</label><input type="text" class="form-control" name="branch" value="CSE" required></div>
+                        <div class="col-4 mb-3"><label class="form-label small text-secondary">Year</label><input type="number" class="form-control" name="year" value="3" min="1" max="5" required></div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-outline-glow btn-sm" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-glow btn-sm"><i class="bi bi-check-lg me-1"></i> Add</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

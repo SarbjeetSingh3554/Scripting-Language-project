@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Smart Attendance System — AI Face Recognition{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column align-items-center justify-content-center" style="min-height: 80vh;">
+    <div class="text-center mb-5">
+        <div class="d-inline-flex align-items-center gap-3 mb-4">
+            <div style="width:56px;height:56px;border-radius:16px;background:var(--gradient-primary);display:flex;align-items:center;justify-content:center;font-size:1.6rem;">
+                <i class="bi bi-camera-reels"></i>
+            </div>
+            <h1 class="display-5 fw-bold mb-0">
+                <span style="background:var(--gradient-primary);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">Smart</span>
+                Attendance
+            </h1>
+        </div>
+        <p class="text-secondary fs-5 mb-0" style="max-width:520px;margin:0 auto;">
+            AI-powered face recognition attendance system.<br>
+            Select your role to continue.
+        </p>
+    </div>
+
+    <div class="row g-4 justify-content-center" style="max-width:900px;width:100%;">
+        <div class="col-md-4">
+            <a href="{{ url_for('login', role='admin') }}" class="text-decoration-none">
+                <div class="glass-card p-4 text-center h-100">
+                    <div class="mx-auto mb-3" style="width:64px;height:64px;border-radius:16px;background:linear-gradient(135deg,#667eea,#764ba2);display:flex;align-items:center;justify-content:center;font-size:1.6rem;">
+                        <i class="bi bi-shield-lock"></i>
+                    </div>
+                    <h5 class="fw-bold text-white mb-1">Admin</h5>
+                    <small class="text-secondary">Manage students, teachers &amp; train the model</small>
+                </div>
+            </a>
+        </div>
+        <div class="col-md-4">
+            <a href="{{ url_for('login', role='teacher') }}" class="text-decoration-none">
+                <div class="glass-card p-4 text-center h-100">
+                    <div class="mx-auto mb-3" style="width:64px;height:64px;border-radius:16px;background:linear-gradient(135deg,#f093fb,#f5576c);display:flex;align-items:center;justify-content:center;font-size:1.6rem;">
+                        <i class="bi bi-person-workspace"></i>
+                    </div>
+                    <h5 class="fw-bold text-white mb-1">Teacher</h5>
+                    <small class="text-secondary">Mark attendance using group photos</small>
+                </div>
+            </a>
+        </div>
+        <div class="col-md-4">
+            <a href="{{ url_for('login', role='student') }}" class="text-decoration-none">
+                <div class="glass-card p-4 text-center h-100">
+                    <div class="mx-auto mb-3" style="width:64px;height:64px;border-radius:16px;background:linear-gradient(135deg,#43e97b,#38f9d7);display:flex;align-items:center;justify-content:center;font-size:1.6rem;color:#0c0c1d;">
+                        <i class="bi bi-mortarboard"></i>
+                    </div>
+                    <h5 class="fw-bold text-white mb-1">Student</h5>
+                    <small class="text-secondary">View your attendance records</small>
+                </div>
+            </a>
+        </div>
+    </div>
+
+    <div class="mt-5 text-center">
+        <small class="text-secondary">
+            <i class="bi bi-info-circle me-1"></i>
+            Default admin: <code>admin / admin123</code> &middot;
+            Teacher: <code>teacher@nit.edu / teacher123</code>
+        </small>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Review Attendance{% endblock %}
+
+{% block navbar %}
+<nav class="navbar navbar-glass navbar-expand-lg py-2">
+    <div class="container">
+        <a class="navbar-brand fw-bold" href="{{ url_for('teacher_dashboard') }}">
+            <i class="bi bi-person-workspace me-2" style="color:#f093fb;"></i>Teacher Panel
+        </a>
+        <div class="d-flex align-items-center gap-2">
+            <a href="{{ url_for('teacher_dashboard') }}" class="btn btn-outline-glow btn-sm"><i class="bi bi-grid me-1"></i> Dashboard</a>
+            <a href="{{ url_for('logout') }}" class="btn btn-sm" style="color:#f5576c;"><i class="bi bi-box-arrow-right me-1"></i> Logout</a>
+        </div>
+    </div>
+</nav>
+{% endblock %}
+
+{% block content %}
+<h3 class="fw-bold mb-4"><i class="bi bi-check2-square me-2" style="color:#43e97b;"></i>Review Attendance — {{ date }}</h3>
+
+<div class="row g-4">
+    {% if annotated_image %}
+    <div class="col-lg-5">
+        <div class="glass-card p-3">
+            <h6 class="fw-bold mb-2 text-secondary small text-uppercase">Detected Faces</h6>
+            <img src="{{ url_for('static', filename='uploads/' + annotated_image) }}" alt="Annotated photo" class="img-fluid rounded-3">
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="col-lg-{% if annotated_image %}7{% else %}12{% endif %}">
+        <div class="glass-card p-4">
+            <form method="POST" action="{{ url_for('save_attendance') }}">
+                <input type="hidden" name="subject_id" value="{{ subject_id }}">
+                <input type="hidden" name="date" value="{{ date }}">
+
+                <table class="table table-glass table-hover mb-3">
+                    <thead>
+                        <tr><th>#</th><th>Name</th><th>Roll No</th><th>Status</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for s in attendance_status %}
+                        <tr>
+                            <td>{{ loop.index }}</td>
+                            <td class="fw-semibold">{{ s.name }}</td>
+                            <td><code>{{ s.roll_no }}</code></td>
+                            <td>
+                                <select name="status_{{ s.student_id }}" class="form-select form-select-sm" style="width:130px;">
+                                    <option value="Present" {% if s.status == 'Present' %}selected{% endif %}>✅ Present</option>
+                                    <option value="Absent" {% if s.status == 'Absent' %}selected{% endif %}>❌ Absent</option>
+                                </select>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+
+                <button type="submit" class="btn btn-glow">
+                    <i class="bi bi-save me-1"></i> Save Attendance
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

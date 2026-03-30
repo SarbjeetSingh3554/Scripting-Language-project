@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Mark Attendance{% endblock %}
+
+{% block navbar %}
+<nav class="navbar navbar-glass navbar-expand-lg py-2">
+    <div class="container">
+        <a class="navbar-brand fw-bold" href="{{ url_for('teacher_dashboard') }}">
+            <i class="bi bi-person-workspace me-2" style="color:#f093fb;"></i>Teacher Panel
+        </a>
+        <div class="d-flex align-items-center gap-2">
+            <a href="{{ url_for('teacher_dashboard') }}" class="btn btn-outline-glow btn-sm"><i class="bi bi-grid me-1"></i> Dashboard</a>
+            <a href="{{ url_for('logout') }}" class="btn btn-sm" style="color:#f5576c;"><i class="bi bi-box-arrow-right me-1"></i> Logout</a>
+        </div>
+    </div>
+</nav>
+{% endblock %}
+
+{% block content %}
+<h3 class="fw-bold mb-4"><i class="bi bi-camera me-2" style="color:#f093fb;"></i>Mark Attendance</h3>
+
+<div class="glass-card p-4" style="max-width:600px;">
+    <form method="POST" enctype="multipart/form-data">
+        <div class="mb-3">
+            <label class="form-label small text-secondary">Subject</label>
+            <select name="subject_id" class="form-select" required>
+                <option value="" disabled selected>Select subject</option>
+                {% for sub in subjects %}
+                <option value="{{ sub.subject_id }}">{{ sub.subject_name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label small text-secondary">Date</label>
+            <input type="date" class="form-control" name="date" required>
+        </div>
+
+        <div class="mb-4">
+            <label class="form-label small text-secondary">Upload Group Photo</label>
+            <input type="file" class="form-control" name="file" accept="image/*" required>
+            <div class="form-text text-secondary mt-1">JPG, JPEG, or PNG &mdash; max 16 MB</div>
+        </div>
+
+        <button type="submit" class="btn btn-glow w-100">
+            <i class="bi bi-cpu me-1"></i> Detect &amp; Mark Attendance
+        </button>
+    </form>
+</div>
+{% endblock %}

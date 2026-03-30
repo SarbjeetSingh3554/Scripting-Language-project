@@ -1,46 +1,58 @@
-import mysql.connector
-from config import DB_HOST, DB_USER, DB_PASSWORD, DB_NAME
+import os
+import sqlite3
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_FILE = os.path.join(BASE_DIR, "main.db")
+
 
 def get_db_connection():
     try:
-        conn = mysql.connector.connect(
-            host=DB_HOST,
-            user=DB_USER,
-            password=DB_PASSWORD,
-            database=DB_NAME,
-            buffered=True
-        )
+        conn = sqlite3.connect(DB_FILE)
+        conn.row_factory = sqlite3.Row  # allows dict-like access
+        conn.execute("PRAGMA foreign_keys = ON")
         return conn
-    except mysql.connector.Error as err:
+    except Exception as err:
         print(f"Error connecting to database: {err}")
         return None
+
+
+def _convert_query(query):
+    """Convert MySQL-style %s placeholders to SQLite ? placeholders."""
+    return query.replace("%s", "?")
+
 
 def execute_query(query, params=None, fetch=False, fetchall=False, commit=False):
     conn = get_db_connection()
     if not conn:
         return None
-    cursor = conn.cursor(dictionary=True)
+
+    query = _convert_query(query)
+    cursor = conn.cursor()
     try:
         if params:
             cursor.execute(query, params)
         else:
             cursor.execute(query)
-            
+
         result = None
         if fetch:
-            result = cursor.fetchone()
+            row = cursor.fetchone()
+            result = dict(row) if row else None
         elif fetchall:
-            result = cursor.fetchall()
-            
+            rows = cursor.fetchall()
+            result = [dict(row) for row in rows]
+
         if commit:
             conn.commit()
-            
+
         return result
-    except mysql.connector.Error as err:
+
+    except Exception as err:
         print(f"Database error executing {query}: {err}")
         if commit:
             conn.rollback()
         return None
+
     finally:
         cursor.close()
         conn.close()

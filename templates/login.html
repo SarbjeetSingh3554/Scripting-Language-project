@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Login — {{ role|capitalize }}{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-center" style="min-height: 80vh;">
+    <div class="glass-card p-5" style="width:100%;max-width:440px;">
+        <div class="text-center mb-4">
+            <div class="d-inline-flex align-items-center justify-content-center mb-3"
+                 style="width:56px;height:56px;border-radius:16px;font-size:1.4rem;
+                 background:{% if role=='admin' %}linear-gradient(135deg,#667eea,#764ba2){% elif role=='teacher' %}linear-gradient(135deg,#f093fb,#f5576c){% else %}linear-gradient(135deg,#43e97b,#38f9d7);color:#0c0c1d{% endif %};">
+                <i class="bi {% if role=='admin' %}bi-shield-lock{% elif role=='teacher' %}bi-person-workspace{% else %}bi-mortarboard{% endif %}"></i>
+            </div>
+            <h4 class="fw-bold mb-1">{{ role|capitalize }} Login</h4>
+            <p class="text-secondary small mb-0">
+                {% if role == 'admin' %}Enter your username &amp; password
+                {% elif role == 'teacher' %}Enter your email &amp; password
+                {% else %}Enter your roll number
+                {% endif %}
+            </p>
+        </div>
+
+        <form method="POST" action="{{ url_for('login', role=role) }}">
+            <div class="mb-3">
+                <label class="form-label small text-secondary">
+                    {% if role == 'admin' %}Username{% elif role == 'teacher' %}Email{% else %}Roll Number{% endif %}
+                </label>
+                <input type="text" class="form-control" name="identifier" required
+                       placeholder="{% if role=='admin' %}admin{% elif role=='teacher' %}teacher@nit.edu{% else %}1201501{% endif %}">
+            </div>
+
+            {% if role != 'student' %}
+            <div class="mb-4">
+                <label class="form-label small text-secondary">Password</label>
+                <input type="password" class="form-control" name="password" required>
+            </div>
+            {% endif %}
+
+            <button type="submit" class="btn btn-glow w-100 mb-3">
+                <i class="bi bi-box-arrow-in-right me-1"></i> Sign In
+            </button>
+
+            <div class="text-center">
+                <a href="{{ url_for('index') }}" class="text-secondary small text-decoration-none">
+                    <i class="bi bi-arrow-left me-1"></i> Back to home
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

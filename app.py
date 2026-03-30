@@ -5,7 +5,14 @@ from datetime import datetime
 from werkzeug.utils import secure_filename
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
 from database import execute_query
-from face_recognition_module import encode_faces, recognize_faces
+
+try:
+    from face_recognition_module import encode_faces, recognize_faces
+    FACE_RECOGNITION_AVAILABLE = True
+except ImportError:
+    FACE_RECOGNITION_AVAILABLE = False
+    def encode_faces(*a, **kw): return {}
+    def recognize_faces(*a, **kw): return [], None
 
 app = Flask(__name__)
 app.secret_key = 'smart_attendance_secret_key'
@@ -241,8 +248,7 @@ def save_attendance():
         if status:
             try:
                 execute_query(
-                    "INSERT INTO attendance (student_id, subject_id, date, status) VALUES (%s, %s, %s, %s) "
-                    "ON DUPLICATE KEY UPDATE status = VALUES(status)",
+                    "INSERT OR REPLACE INTO attendance (student_id, subject_id, date, status) VALUES (%s, %s, %s, %s)",
                     (s_id, subject_id, date, status), commit=True
                 )
                 success_count += 1

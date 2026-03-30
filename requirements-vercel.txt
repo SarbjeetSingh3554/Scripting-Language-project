@@ -1,0 +1,5 @@
+# Vercel-compatible requirements (no C-library deps like dlib/opencv/face_recognition)
+Flask==3.0.0
+numpy==1.26.2
+werkzeug==3.0.1
+setuptools<70
