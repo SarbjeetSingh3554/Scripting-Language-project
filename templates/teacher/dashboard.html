@@ -42,6 +42,7 @@
     </div>
 </div>
 
+<!-- Assigned Subjects with class management -->
 <div class="glass-card p-4 mb-4">
     <h5 class="fw-bold mb-3"><i class="bi bi-journal-text me-2" style="color:#667eea;"></i>Assigned Subjects</h5>
     {% if subjects %}
@@ -49,12 +50,28 @@
         {% for sub in subjects %}
         <div class="col-md-6">
             <div class="p-3 rounded-3" style="background:rgba(102,126,234,0.08);border:1px solid rgba(102,126,234,0.15);">
-                <div class="d-flex align-items-center justify-content-between">
+                <div class="d-flex align-items-center justify-content-between mb-2">
                     <div class="d-flex align-items-center gap-2">
                         <i class="bi bi-book-half" style="color:#667eea;"></i>
                         <span class="fw-semibold">{{ sub.subject_name }}</span>
                     </div>
                     <span class="badge bg-info bg-opacity-25 text-info">{{ sub.total_classes }} classes</span>
+                </div>
+                <div class="d-flex gap-2 mt-2">
+                    <!-- Cancel Class -->
+                    <form method="POST" action="{{ url_for('cancel_class') }}" class="flex-grow-1">
+                        <input type="hidden" name="subject_id" value="{{ sub.subject_id }}">
+                        <button type="submit" class="btn btn-sm w-100" style="color:#f5576c;border:1px solid rgba(245,87,108,0.3);font-size:0.8rem;" onclick="return confirm('Cancel a class for {{ sub.subject_name }}? Total classes will decrease by 1.')">
+                            <i class="bi bi-dash-circle me-1"></i> Cancel Class
+                        </button>
+                    </form>
+                    <!-- Add Extra Class -->
+                    <form method="POST" action="{{ url_for('add_extra_class') }}" class="flex-grow-1">
+                        <input type="hidden" name="subject_id" value="{{ sub.subject_id }}">
+                        <button type="submit" class="btn btn-sm w-100" style="color:#43e97b;border:1px solid rgba(67,233,123,0.3);font-size:0.8rem;" onclick="return confirm('Add an extra class for {{ sub.subject_name }}? Total classes will increase by 1.')">
+                            <i class="bi bi-plus-circle me-1"></i> Extra Class
+                        </button>
+                    </form>
                 </div>
             </div>
         </div>
@@ -65,29 +82,13 @@
     {% endif %}
 </div>
 
-<!-- Cancel Class Section -->
+<!-- Info Card -->
 <div class="glass-card p-4">
-    <h5 class="fw-bold mb-3"><i class="bi bi-x-circle me-2" style="color:#f5576c;"></i>Cancel a Class</h5>
-    <p class="text-secondary small mb-3">If a class is cancelled, select the subject below to decrease its total class count by 1.</p>
-    {% if subjects %}
-    <div class="row g-3">
-        {% for sub in subjects %}
-        <div class="col-md-6">
-            <form method="POST" action="{{ url_for('cancel_class') }}" class="d-flex align-items-center gap-2">
-                <input type="hidden" name="subject_id" value="{{ sub.subject_id }}">
-                <div class="flex-grow-1 p-2 rounded-3" style="background:rgba(245,87,108,0.08);border:1px solid rgba(245,87,108,0.15);">
-                    <span class="fw-semibold small">{{ sub.subject_name }}</span>
-                    <small class="text-secondary ms-2">({{ sub.total_classes }} classes)</small>
-                </div>
-                <button type="submit" class="btn btn-sm" style="color:#f5576c;border:1px solid rgba(245,87,108,0.3);" onclick="return confirm('Cancel a class for {{ sub.subject_name }}? This will reduce total classes by 1.')">
-                    <i class="bi bi-dash-circle me-1"></i> Cancel
-                </button>
-            </form>
-        </div>
-        {% endfor %}
-    </div>
-    {% else %}
-    <p class="text-secondary mb-0">No subjects to cancel classes for.</p>
-    {% endif %}
+    <h6 class="fw-bold mb-2"><i class="bi bi-info-circle me-2" style="color:#667eea;"></i>How it works</h6>
+    <ul class="text-secondary small mb-0" style="list-style:none;padding:0;">
+        <li class="mb-1"><i class="bi bi-dash-circle text-danger me-2"></i><strong>Cancel Class</strong> — Reduces total classes by 1 (when a scheduled class is cancelled).</li>
+        <li class="mb-1"><i class="bi bi-plus-circle text-success me-2"></i><strong>Extra Class</strong> — Increases total classes by 1 (when you take an additional class). Mark attendance for it separately.</li>
+        <li><i class="bi bi-camera text-info me-2"></i><strong>Mark Attendance</strong> — Upload a group photo to auto-detect present students via face recognition.</li>
+    </ul>
 </div>
 {% endblock %}

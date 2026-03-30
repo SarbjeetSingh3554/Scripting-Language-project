@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% block title %}Manage Subjects{% endblock %}
+
+{% block navbar %}
+<nav class="navbar navbar-glass navbar-expand-lg py-2">
+    <div class="container">
+        <a class="navbar-brand fw-bold" href="{{ url_for('admin_dashboard') }}">
+            <i class="bi bi-shield-lock me-2" style="color:#667eea;"></i>Admin Panel
+        </a>
+        <div class="d-flex align-items-center gap-2">
+            <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-glow btn-sm"><i class="bi bi-grid me-1"></i> Dashboard</a>
+            <a href="{{ url_for('manage_students') }}" class="btn btn-outline-glow btn-sm"><i class="bi bi-people me-1"></i> Students</a>
+            <a href="{{ url_for('manage_teachers') }}" class="btn btn-outline-glow btn-sm"><i class="bi bi-person-badge me-1"></i> Teachers</a>
+            <a href="{{ url_for('logout') }}" class="btn btn-sm" style="color:#f5576c;"><i class="bi bi-box-arrow-right me-1"></i> Logout</a>
+        </div>
+    </div>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <h3 class="fw-bold mb-0"><i class="bi bi-book me-2" style="color:#43e97b;"></i>Manage Subjects</h3>
+    <button class="btn btn-glow btn-sm" data-bs-toggle="modal" data-bs-target="#addSubjectModal">
+        <i class="bi bi-plus-lg me-1"></i> Add Subject
+    </button>
+</div>
+
+<div class="glass-card p-0 overflow-hidden mb-4">
+    <table class="table table-glass table-hover mb-0">
+        <thead>
+            <tr><th>#</th><th>Subject Name</th><th>Assigned Teacher</th><th>Total Classes</th><th>Actions</th></tr>
+        </thead>
+        <tbody>
+            {% for s in subjects %}
+            <tr>
+                <td>{{ loop.index }}</td>
+                <td class="fw-semibold">{{ s.subject_name }}</td>
+                <td>
+                    {% if s.teacher_name %}
+                        <span class="badge bg-success bg-opacity-25 text-success"><i class="bi bi-person-check me-1"></i>{{ s.teacher_name }}</span>
+                    {% else %}
+                        <span class="badge bg-warning bg-opacity-25 text-warning"><i class="bi bi-person-x me-1"></i>Unassigned</span>
+                    {% endif %}
+                </td>
+                <td><code>{{ s.total_classes }}</code></td>
+                <td>
+                    <div class="d-flex gap-1">
+                        <!-- Assign/Reassign Teacher -->
+                        <button class="btn btn-sm" style="color:#667eea;border:1px solid rgba(102,126,234,0.3);" data-bs-toggle="modal" data-bs-target="#assignModal{{ s.subject_id }}">
+                            <i class="bi bi-person-gear me-1"></i> Assign
+                        </button>
+                        <!-- Delete -->
+                        <form method="POST" style="display:inline;">
+                            <input type="hidden" name="action" value="delete">
+                            <input type="hidden" name="subject_id" value="{{ s.subject_id }}">
+                            <button type="submit" class="btn btn-sm" style="color:#f5576c;" onclick="return confirm('Delete subject {{ s.subject_name }}? All attendance records for this subject will be lost.')">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+
+            <!-- Assign Teacher Modal for each subject -->
+            <div class="modal fade" id="assignModal{{ s.subject_id }}" tabindex="-1">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content" style="background:#1a1a3e;border:1px solid var(--glass-border);border-radius:16px;">
+                        <div class="modal-header border-0">
+                            <h5 class="modal-title fw-bold"><i class="bi bi-person-gear me-2" style="color:#667eea;"></i>Assign Teacher — {{ s.subject_name }}</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <form method="POST">
+                            <div class="modal-body">
+                                <input type="hidden" name="action" value="assign">
+                                <input type="hidden" name="subject_id" value="{{ s.subject_id }}">
+                                <div class="mb-3">
+                                    <label class="form-label small text-secondary">Select Teacher</label>
+                                    <select class="form-select" name="teacher_id">
+                                        <option value="">— Unassigned —</option>
+                                        {% for t in teachers %}
+                                        <option value="{{ t.teacher_id }}" {% if s.teacher_id == t.teacher_id %}selected{% endif %}>{{ t.name }} ({{ t.email }})</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="modal-footer border-0">
+                                <button type="button" class="btn btn-outline-glow btn-sm" data-bs-dismiss="modal">Cancel</button>
+                                <button type="submit" class="btn btn-glow btn-sm"><i class="bi bi-check-lg me-1"></i> Save</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <tr><td colspan="5" class="text-center text-secondary py-4">No subjects found. Add one above.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Add Subject Modal -->
+<div class="modal fade" id="addSubjectModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="background:#1a1a3e;border:1px solid var(--glass-border);border-radius:16px;">
+            <div class="modal-header border-0">
+                <h5 class="modal-title fw-bold"><i class="bi bi-book me-2" style="color:#43e97b;"></i>Add Subject</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST">
+                <div class="modal-body">
+                    <input type="hidden" name="action" value="add">
+                    <div class="mb-3">
+                        <label class="form-label small text-secondary">Subject Name</label>
+                        <input type="text" class="form-control" name="subject_name" placeholder="e.g. Scripting Language" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small text-secondary">Assign to Teacher</label>
+                        <select class="form-select" name="teacher_id">
+                            <option value="">— Assign Later —</option>
+                            {% for t in teachers %}
+                            <option value="{{ t.teacher_id }}">{{ t.name }} ({{ t.email }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small text-secondary">Total Classes</label>
+                        <input type="number" class="form-control" name="total_classes" value="39" min="1" required>
+                        <div class="form-text text-secondary mt-1">Initial number of planned classes for this subject.</div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-outline-glow btn-sm" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-glow btn-sm"><i class="bi bi-check-lg me-1"></i> Add</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

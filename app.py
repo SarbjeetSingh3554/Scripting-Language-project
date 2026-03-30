@@ -131,6 +131,51 @@ def manage_teachers():
     teachers = execute_query("SELECT * FROM teachers ORDER BY name ASC", fetchall=True)
     return render_template('admin/manage_teachers.html', teachers=teachers)
 
+@app.route('/admin/manage_subjects', methods=['GET', 'POST'])
+def manage_subjects():
+    if session.get('role') != 'admin': return redirect(url_for('login', role='admin'))
+    
+    if request.method == 'POST':
+        action = request.form.get('action')
+        if action == 'add':
+            subject_name = request.form.get('subject_name')
+            teacher_id = request.form.get('teacher_id')
+            total_classes = request.form.get('total_classes', 39)
+            try:
+                total_classes = int(total_classes)
+            except (ValueError, TypeError):
+                total_classes = 39
+            if teacher_id == '' or teacher_id is None:
+                teacher_id = None
+            execute_query(
+                "INSERT INTO subjects (subject_name, teacher_id, total_classes) VALUES (%s, %s, %s)",
+                (subject_name, teacher_id, total_classes), commit=True
+            )
+            flash(f"Subject '{subject_name}' added successfully", "success")
+        elif action == 'assign':
+            subject_id = request.form.get('subject_id')
+            teacher_id = request.form.get('teacher_id')
+            if teacher_id == '' or teacher_id is None:
+                teacher_id = None
+            execute_query(
+                "UPDATE subjects SET teacher_id = %s WHERE subject_id = %s",
+                (teacher_id, subject_id), commit=True
+            )
+            flash("Subject assignment updated", "success")
+        elif action == 'delete':
+            subject_id = request.form.get('subject_id')
+            execute_query("DELETE FROM subjects WHERE subject_id = %s", (subject_id,), commit=True)
+            flash("Subject deleted successfully", "success")
+    
+    subjects = execute_query("""
+        SELECT s.*, t.name as teacher_name 
+        FROM subjects s 
+        LEFT JOIN teachers t ON s.teacher_id = t.teacher_id 
+        ORDER BY s.subject_name ASC
+    """, fetchall=True)
+    teachers = execute_query("SELECT * FROM teachers ORDER BY name ASC", fetchall=True)
+    return render_template('admin/manage_subjects.html', subjects=subjects, teachers=teachers)
+
 @app.route('/admin/train_model', methods=['POST'])
 def train_model():
     if session.get('role') != 'admin': return jsonify({"status": "error", "message": "Unauthorized"}), 403
@@ -264,16 +309,48 @@ def cancel_class():
     """When a teacher cancels a class, decrease total_classes for that subject by 1."""
     if session.get('role') != 'teacher': return redirect(url_for('login', role='teacher'))
     
+    teacher_id = session.get('user_id')
     subject_id = request.form.get('subject_id')
     if subject_id:
-        # Decrease total_classes by 1 (minimum 0)
-        execute_query(
-            "UPDATE subjects SET total_classes = MAX(total_classes - 1, 0) WHERE subject_id = %s",
-            (subject_id,), commit=True
+        # Verify this subject belongs to this teacher
+        subject = execute_query(
+            "SELECT * FROM subjects WHERE subject_id = %s AND teacher_id = %s",
+            (subject_id, teacher_id), fetch=True
         )
-        subject = execute_query("SELECT subject_name, total_classes FROM subjects WHERE subject_id = %s", (subject_id,), fetch=True)
         if subject:
-            flash(f"Class cancelled for {subject['subject_name']}. Total classes now: {subject['total_classes']}", "success")
+            execute_query(
+                "UPDATE subjects SET total_classes = MAX(total_classes - 1, 0) WHERE subject_id = %s",
+                (subject_id,), commit=True
+            )
+            updated = execute_query("SELECT total_classes FROM subjects WHERE subject_id = %s", (subject_id,), fetch=True)
+            flash(f"Class cancelled for {subject['subject_name']}. Total classes now: {updated['total_classes']}", "success")
+        else:
+            flash("You are not authorized to modify this subject.", "danger")
+    
+    return redirect(url_for('teacher_dashboard'))
+
+@app.route('/teacher/add_extra_class', methods=['POST'])
+def add_extra_class():
+    """When a teacher takes an extra class, increase total_classes for that subject by 1."""
+    if session.get('role') != 'teacher': return redirect(url_for('login', role='teacher'))
+    
+    teacher_id = session.get('user_id')
+    subject_id = request.form.get('subject_id')
+    if subject_id:
+        # Verify this subject belongs to this teacher
+        subject = execute_query(
+            "SELECT * FROM subjects WHERE subject_id = %s AND teacher_id = %s",
+            (subject_id, teacher_id), fetch=True
+        )
+        if subject:
+            execute_query(
+                "UPDATE subjects SET total_classes = total_classes + 1 WHERE subject_id = %s",
+                (subject_id,), commit=True
+            )
+            updated = execute_query("SELECT total_classes FROM subjects WHERE subject_id = %s", (subject_id,), fetch=True)
+            flash(f"Extra class added for {subject['subject_name']}. Total classes now: {updated['total_classes']}", "success")
+        else:
+            flash("You are not authorized to modify this subject.", "danger")
     
     return redirect(url_for('teacher_dashboard'))
 
