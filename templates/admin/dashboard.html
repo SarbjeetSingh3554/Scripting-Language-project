@@ -29,31 +29,46 @@
 <h3 class="fw-bold mb-4"><i class="bi bi-grid me-2" style="color:#667eea;"></i>Dashboard</h3>
 
 <div class="row g-4 mb-5">
-    <div class="col-md-4">
-        <div class="stat-card">
-            <div class="d-flex align-items-center gap-3 mb-3">
-                <div class="stat-icon" style="background:linear-gradient(135deg,#667eea,#764ba2);"><i class="bi bi-people-fill text-white"></i></div>
-                <span class="text-secondary small fw-semibold text-uppercase">Students</span>
+    <div class="col-md-3">
+        <a href="{{ url_for('manage_students') }}" class="text-decoration-none">
+            <div class="stat-card">
+                <div class="d-flex align-items-center gap-3 mb-3">
+                    <div class="stat-icon" style="background:linear-gradient(135deg,#667eea,#764ba2);"><i class="bi bi-people-fill text-white"></i></div>
+                    <span class="text-secondary small fw-semibold text-uppercase">Students</span>
+                </div>
+                <div class="stat-value">{{ stats.students }}</div>
             </div>
-            <div class="stat-value">{{ stats.students }}</div>
-        </div>
+        </a>
     </div>
-    <div class="col-md-4">
-        <div class="stat-card">
-            <div class="d-flex align-items-center gap-3 mb-3">
-                <div class="stat-icon" style="background:linear-gradient(135deg,#f093fb,#f5576c);"><i class="bi bi-person-badge-fill text-white"></i></div>
-                <span class="text-secondary small fw-semibold text-uppercase">Teachers</span>
+    <div class="col-md-3">
+        <a href="{{ url_for('manage_teachers') }}" class="text-decoration-none">
+            <div class="stat-card">
+                <div class="d-flex align-items-center gap-3 mb-3">
+                    <div class="stat-icon" style="background:linear-gradient(135deg,#f093fb,#f5576c);"><i class="bi bi-person-badge-fill text-white"></i></div>
+                    <span class="text-secondary small fw-semibold text-uppercase">Teachers</span>
+                </div>
+                <div class="stat-value">{{ stats.teachers }}</div>
             </div>
-            <div class="stat-value">{{ stats.teachers }}</div>
-        </div>
+        </a>
     </div>
-    <div class="col-md-4">
+    <div class="col-md-3">
+        <a href="{{ url_for('manage_subjects') }}" class="text-decoration-none">
+            <div class="stat-card">
+                <div class="d-flex align-items-center gap-3 mb-3">
+                    <div class="stat-icon" style="background:linear-gradient(135deg,#43e97b,#38f9d7);"><i class="bi bi-book-fill" style="color:#0c0c1d;"></i></div>
+                    <span class="text-secondary small fw-semibold text-uppercase">Subjects</span>
+                </div>
+                <div class="stat-value">{{ stats.subjects }}</div>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-3">
         <div class="stat-card">
             <div class="d-flex align-items-center gap-3 mb-3">
-                <div class="stat-icon" style="background:linear-gradient(135deg,#43e97b,#38f9d7);"><i class="bi bi-book-fill" style="color:#0c0c1d;"></i></div>
-                <span class="text-secondary small fw-semibold text-uppercase">Subjects</span>
+                <div class="stat-icon" style="background:linear-gradient(135deg,#f6d365,#fda085);"><i class="bi bi-camera-fill text-white"></i></div>
+                <span class="text-secondary small fw-semibold text-uppercase">Face Trained</span>
             </div>
-            <div class="stat-value">{{ stats.subjects }}</div>
+            <div class="stat-value">{{ stats.trained }}<small class="text-secondary fs-6">/{{ stats.students }}</small></div>
         </div>
     </div>
 </div>
@@ -62,8 +77,13 @@
     <h5 class="fw-bold mb-3"><i class="bi bi-cpu me-2" style="color:#f093fb;"></i>Train Face Recognition Model</h5>
     <p class="text-secondary small mb-3">
         Scans the <code>dataset/</code> folder and generates face encodings for all students.
-        Make sure student face images are placed in their named sub-folders first.
+        Photos are automatically saved when adding students. You can also re-train to update encodings.
     </p>
+    {% if stats.trained < stats.students %}
+    <div class="p-2 rounded-3 mb-3" style="background:rgba(245,87,108,0.08);border:1px solid rgba(245,87,108,0.15);">
+        <small class="text-warning"><i class="bi bi-exclamation-triangle me-1"></i> {{ stats.students - stats.trained }} student(s) don't have face data yet. Upload photos in the Students page or click Train below.</small>
+    </div>
+    {% endif %}
     <form method="POST" action="{{ url_for('train_model') }}">
         <button type="submit" class="btn btn-glow">
             <i class="bi bi-lightning-charge me-1"></i> Train Model

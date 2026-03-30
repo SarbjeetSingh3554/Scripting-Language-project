@@ -1,6 +1,7 @@
 import os
 import json
 import math
+import shutil
 import numpy as np
 from datetime import datetime
 from werkzeug.utils import secure_filename
@@ -28,6 +29,33 @@ app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max upload
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+def encode_single_student(roll_no):
+    """Generate face encoding for a single student from their dataset folder."""
+    student_dir = os.path.join(DATASET_FOLDER, roll_no)
+    if not os.path.isdir(student_dir):
+        return None
+    
+    try:
+        import face_recognition as fr
+        student_encodings = []
+        for image_name in os.listdir(student_dir):
+            if image_name.lower().endswith(('.jpg', '.jpeg', '.png')):
+                image_path = os.path.join(student_dir, image_name)
+                try:
+                    image = fr.load_image_file(image_path)
+                    encodings = fr.face_encodings(image)
+                    if len(encodings) > 0:
+                        student_encodings.append(encodings[0])
+                except Exception as e:
+                    print(f"Error processing {image_path}: {e}")
+        
+        if student_encodings:
+            avg_encoding = np.mean(student_encodings, axis=0)
+            return avg_encoding.tolist()
+    except ImportError:
+        pass
+    return None
+
 # =========================
 # Auth & Common Routes
 # =========================
@@ -38,8 +66,8 @@ def index():
 @app.route('/login/<role>', methods=['GET', 'POST'])
 def login(role):
     if request.method == 'POST':
-        identifier = request.form.get('identifier') # Username/Email/RollNo
-        password = request.form.get('password')     # For admin/teacher. Students might login by rollno
+        identifier = request.form.get('identifier')
+        password = request.form.get('password')
         
         if role == 'admin':
             admin = execute_query("SELECT * FROM admins WHERE username = %s AND password = %s", (identifier, password), fetch=True)
@@ -85,6 +113,9 @@ def admin_dashboard():
     stats['teachers'] = execute_query("SELECT COUNT(*) as count FROM teachers", fetch=True)['count']
     stats['subjects'] = execute_query("SELECT COUNT(*) as count FROM subjects", fetch=True)['count']
     
+    # Count students with face data
+    stats['trained'] = execute_query("SELECT COUNT(*) as count FROM students WHERE face_encoding IS NOT NULL", fetch=True)['count']
+    
     return render_template('admin/dashboard.html', stats=stats)
 
 @app.route('/admin/manage_students', methods=['GET', 'POST'])
@@ -99,15 +130,103 @@ def manage_students():
             roll_no = request.form.get('roll_no')
             branch = request.form.get('branch')
             year = request.form.get('year')
-            execute_query("INSERT INTO students (name, roll_no, branch, year) VALUES (%s, %s, %s, %s)",
-                          (name, roll_no, branch, year), commit=True)
-            flash("Student added successfully", "success")
+            
+            # Check if roll_no already exists
+            existing = execute_query("SELECT student_id FROM students WHERE roll_no = %s", (roll_no,), fetch=True)
+            if existing:
+                flash(f"Student with roll no {roll_no} already exists!", "danger")
+            else:
+                # Insert student
+                execute_query("INSERT INTO students (name, roll_no, branch, year) VALUES (%s, %s, %s, %s)",
+                              (name, roll_no, branch, year), commit=True)
+                
+                # Handle face photo upload
+                photos = request.files.getlist('photos')
+                student_dir = os.path.join(DATASET_FOLDER, roll_no)
+                os.makedirs(student_dir, exist_ok=True)
+                
+                photo_count = 0
+                for photo in photos:
+                    if photo and photo.filename and allowed_file(photo.filename):
+                        ext = photo.filename.rsplit('.', 1)[1].lower()
+                        photo_filename = f"{roll_no}_face_{photo_count + 1}.{ext}"
+                        photo_path = os.path.join(student_dir, photo_filename)
+                        photo.save(photo_path)
+                        photo_count += 1
+                
+                # Try to auto-generate face encoding
+                if photo_count > 0:
+                    encoding = encode_single_student(roll_no)
+                    if encoding:
+                        student = execute_query("SELECT student_id FROM students WHERE roll_no = %s", (roll_no,), fetch=True)
+                        if student:
+                            encoding_json = json.dumps(encoding)
+                            execute_query("UPDATE students SET face_encoding = %s WHERE student_id = %s",
+                                         (encoding_json, student['student_id']), commit=True)
+                        flash(f"Student {name} ({roll_no}) added with face data ✅", "success")
+                    else:
+                        flash(f"Student {name} ({roll_no}) added. Face not detected in photo — retrain model or upload clearer photos.", "warning")
+                else:
+                    flash(f"Student {name} ({roll_no}) added without photo. Upload face photos and train the model.", "warning")
+                    
         elif action == 'delete':
             student_id = request.form.get('student_id')
-            execute_query("DELETE FROM students WHERE student_id = %s", (student_id,), commit=True)
-            flash("Student deleted successfully", "success")
+            # Get student info before deleting
+            student = execute_query("SELECT name, roll_no FROM students WHERE student_id = %s", (student_id,), fetch=True)
+            if student:
+                # Delete attendance records
+                execute_query("DELETE FROM attendance WHERE student_id = %s", (student_id,), commit=True)
+                # Delete student
+                execute_query("DELETE FROM students WHERE student_id = %s", (student_id,), commit=True)
+                # Remove dataset folder
+                student_dir = os.path.join(DATASET_FOLDER, student['roll_no'])
+                if os.path.exists(student_dir):
+                    shutil.rmtree(student_dir)
+                flash(f"Student {student['name']} ({student['roll_no']}) deleted along with all attendance records.", "success")
+            
+        elif action == 'upload_photo':
+            student_id = request.form.get('student_id')
+            student = execute_query("SELECT name, roll_no FROM students WHERE student_id = %s", (student_id,), fetch=True)
+            if student:
+                photos = request.files.getlist('photos')
+                student_dir = os.path.join(DATASET_FOLDER, student['roll_no'])
+                os.makedirs(student_dir, exist_ok=True)
+                
+                # Count existing photos
+                existing_count = len([f for f in os.listdir(student_dir) if f.lower().endswith(('.jpg', '.jpeg', '.png'))]) if os.path.exists(student_dir) else 0
+                
+                photo_count = 0
+                for photo in photos:
+                    if photo and photo.filename and allowed_file(photo.filename):
+                        ext = photo.filename.rsplit('.', 1)[1].lower()
+                        photo_filename = f"{student['roll_no']}_face_{existing_count + photo_count + 1}.{ext}"
+                        photo_path = os.path.join(student_dir, photo_filename)
+                        photo.save(photo_path)
+                        photo_count += 1
+                
+                if photo_count > 0:
+                    # Auto re-encode
+                    encoding = encode_single_student(student['roll_no'])
+                    if encoding:
+                        encoding_json = json.dumps(encoding)
+                        execute_query("UPDATE students SET face_encoding = %s WHERE student_id = %s",
+                                     (encoding_json, student_id), commit=True)
+                        flash(f"Photos uploaded and face data updated for {student['name']} ✅", "success")
+                    else:
+                        flash(f"Photos uploaded but face not detected. Try clearer photos.", "warning")
+                else:
+                    flash("No valid photos uploaded.", "danger")
             
     students = execute_query("SELECT * FROM students ORDER BY roll_no ASC", fetchall=True)
+    
+    # Count photos for each student
+    for s in students:
+        student_dir = os.path.join(DATASET_FOLDER, s['roll_no'])
+        if os.path.exists(student_dir):
+            s['photo_count'] = len([f for f in os.listdir(student_dir) if f.lower().endswith(('.jpg', '.jpeg', '.png'))])
+        else:
+            s['photo_count'] = 0
+    
     return render_template('admin/manage_students.html', students=students)
 
 @app.route('/admin/manage_teachers', methods=['GET', 'POST'])
@@ -120,15 +239,32 @@ def manage_teachers():
             name = request.form.get('name')
             email = request.form.get('email')
             password = request.form.get('password')
-            execute_query("INSERT INTO teachers (name, email, password) VALUES (%s, %s, %s)",
-                          (name, email, password), commit=True)
-            flash("Teacher added successfully", "success")
+            
+            # Check if email already exists
+            existing = execute_query("SELECT teacher_id FROM teachers WHERE email = %s", (email,), fetch=True)
+            if existing:
+                flash(f"Teacher with email {email} already exists!", "danger")
+            else:
+                execute_query("INSERT INTO teachers (name, email, password) VALUES (%s, %s, %s)",
+                              (name, email, password), commit=True)
+                flash(f"Teacher {name} added successfully", "success")
         elif action == 'delete':
             teacher_id = request.form.get('teacher_id')
-            execute_query("DELETE FROM teachers WHERE teacher_id = %s", (teacher_id,), commit=True)
-            flash("Teacher deleted successfully", "success")
+            teacher = execute_query("SELECT name FROM teachers WHERE teacher_id = %s", (teacher_id,), fetch=True)
+            if teacher:
+                # Unassign subjects (set teacher_id to NULL, don't delete subjects)
+                execute_query("UPDATE subjects SET teacher_id = NULL WHERE teacher_id = %s", (teacher_id,), commit=True)
+                # Delete teacher
+                execute_query("DELETE FROM teachers WHERE teacher_id = %s", (teacher_id,), commit=True)
+                flash(f"Teacher {teacher['name']} deleted. Their subjects are now unassigned.", "success")
             
-    teachers = execute_query("SELECT * FROM teachers ORDER BY name ASC", fetchall=True)
+    # Fetch teachers with subject count
+    teachers = execute_query("""
+        SELECT t.*, 
+               (SELECT COUNT(*) FROM subjects WHERE teacher_id = t.teacher_id) as subject_count
+        FROM teachers t
+        ORDER BY t.name ASC
+    """, fetchall=True)
     return render_template('admin/manage_teachers.html', teachers=teachers)
 
 @app.route('/admin/manage_subjects', methods=['GET', 'POST'])
@@ -164,6 +300,8 @@ def manage_subjects():
             flash("Subject assignment updated", "success")
         elif action == 'delete':
             subject_id = request.form.get('subject_id')
+            # Delete attendance records for this subject first
+            execute_query("DELETE FROM attendance WHERE subject_id = %s", (subject_id,), commit=True)
             execute_query("DELETE FROM subjects WHERE subject_id = %s", (subject_id,), commit=True)
             flash("Subject deleted successfully", "success")
     
@@ -180,23 +318,30 @@ def manage_subjects():
 def train_model():
     if session.get('role') != 'admin': return jsonify({"status": "error", "message": "Unauthorized"}), 403
     
-    # Process the dataset to generate encodings
     try:
-        encodings = encode_faces(DATASET_FOLDER)
-        
-        # Update database with new encodings
+        # Scan all student folders in dataset (folders named by roll_no)
         success_count = 0
-        for roll_no, encoding in encodings.items():
-            # Convert encoding back to JSON string to save in DB
-            encoding_json = json.dumps(encoding)
-            # Find student by name (folder names are student names)
-            student = execute_query("SELECT student_id FROM students WHERE LOWER(name) = %s", (roll_no.lower(),), fetch=True)
-            if student:
+        fail_count = 0
+        students = execute_query("SELECT student_id, name, roll_no FROM students", fetchall=True)
+        
+        for student in students:
+            roll_no = student['roll_no']
+            encoding = encode_single_student(roll_no)
+            if encoding:
+                encoding_json = json.dumps(encoding)
                 execute_query("UPDATE students SET face_encoding = %s WHERE student_id = %s", 
                              (encoding_json, student['student_id']), commit=True)
                 success_count += 1
-                
-        flash(f"Model trained successfully. {success_count} student encodings generated.", "success")
+            else:
+                # Check if folder exists but no valid face
+                student_dir = os.path.join(DATASET_FOLDER, roll_no)
+                if os.path.isdir(student_dir):
+                    fail_count += 1
+                    
+        msg = f"Model trained: {success_count} students encoded."
+        if fail_count > 0:
+            msg += f" {fail_count} students had photos but no face detected."
+        flash(msg, "success" if fail_count == 0 else "warning")
     except Exception as e:
         flash(f"Error training model: {str(e)}", "danger")
         
@@ -244,12 +389,11 @@ def mark_attendance():
             
             known_encodings = []
             known_student_names = []
-            student_mapping = {} # Name to ID
+            student_mapping = {}
             
             for s in students:
                 encoding = json.loads(s['face_encoding'])
                 known_encodings.append(np.array(encoding))
-                # For display and matching, we can use Name or Roll No
                 known_student_names.append(s['name'])
                 student_mapping[s['name']] = s['student_id']
                 
@@ -284,7 +428,6 @@ def save_attendance():
     subject_id = request.form.get('subject_id')
     date = request.form.get('date')
     
-    # Process dynamically generated inputs for student statuses
     all_students = execute_query("SELECT student_id FROM students", fetchall=True)
     
     success_count = 0
@@ -306,13 +449,11 @@ def save_attendance():
 
 @app.route('/teacher/cancel_class', methods=['POST'])
 def cancel_class():
-    """When a teacher cancels a class, decrease total_classes for that subject by 1."""
     if session.get('role') != 'teacher': return redirect(url_for('login', role='teacher'))
     
     teacher_id = session.get('user_id')
     subject_id = request.form.get('subject_id')
     if subject_id:
-        # Verify this subject belongs to this teacher
         subject = execute_query(
             "SELECT * FROM subjects WHERE subject_id = %s AND teacher_id = %s",
             (subject_id, teacher_id), fetch=True
@@ -331,13 +472,11 @@ def cancel_class():
 
 @app.route('/teacher/add_extra_class', methods=['POST'])
 def add_extra_class():
-    """When a teacher takes an extra class, increase total_classes for that subject by 1."""
     if session.get('role') != 'teacher': return redirect(url_for('login', role='teacher'))
     
     teacher_id = session.get('user_id')
     subject_id = request.form.get('subject_id')
     if subject_id:
-        # Verify this subject belongs to this teacher
         subject = execute_query(
             "SELECT * FROM subjects WHERE subject_id = %s AND teacher_id = %s",
             (subject_id, teacher_id), fetch=True
@@ -364,7 +503,6 @@ def student_dashboard():
     student_id = session.get('user_id')
     roll_no = session.get('roll_no', '')
     
-    # Fetch all subjects
     all_subjects = execute_query("SELECT * FROM subjects", fetchall=True)
     
     subject_stats = []
@@ -375,33 +513,23 @@ def student_dashboard():
         sub_id = sub['subject_id']
         total_classes = sub.get('total_classes', 39) or 39
         
-        # Count attended classes for this student in this subject
         attended = execute_query(
             "SELECT COUNT(*) as count FROM attendance WHERE student_id = %s AND subject_id = %s AND status = 'Present'",
             (student_id, sub_id), fetch=True
         )['count']
         
-        # Calculate percentage
         percentage = round((attended / total_classes * 100), 1) if total_classes > 0 else 0
         
-        # Calculate classes needed to maintain 75%
-        # We need: (attended + x) / (total_classes + x) >= 0.75  (if attending future classes)
-        # But simpler: how many more classes to attend out of remaining to reach 75%
-        # Required attended for 75%: ceil(0.75 * total_classes)
         required_for_75 = math.ceil(0.75 * total_classes)
         classes_needed = max(required_for_75 - attended, 0)
         
-        # Remaining classes (total - classes marked so far)
         classes_marked = execute_query(
             "SELECT COUNT(*) as count FROM attendance WHERE student_id = %s AND subject_id = %s",
             (student_id, sub_id), fetch=True
         )['count']
         remaining = max(total_classes - classes_marked, 0)
         
-        # Can the student still reach 75%?
         can_reach_75 = (attended + remaining) >= required_for_75
-        
-        # How many classes can student skip (bunk) and still have 75%
         classes_can_skip = max(remaining - classes_needed, 0) if can_reach_75 else 0
         
         subject_stats.append({
@@ -423,7 +551,6 @@ def student_dashboard():
     
     overall_percentage = round((overall_attended / overall_total * 100), 1) if overall_total > 0 else 0
     
-    # Fetch detailed recent attendance
     history = execute_query("""
         SELECT a.date, a.status, s.subject_name 
         FROM attendance a 
@@ -441,6 +568,6 @@ def student_dashboard():
                            history=history)
 
 if __name__ == '__main__':
-    # Ensure upload folder exists
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+    os.makedirs(DATASET_FOLDER, exist_ok=True)
     app.run(debug=True, port=5000)

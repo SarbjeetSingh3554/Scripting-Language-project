@@ -43,15 +43,15 @@ def create_demo_data():
             commit=True,
         )
 
-        # Create dataset directory
-        dir_path = f"dataset/{name}"
+        # Create dataset directory (named by roll_no)
+        dir_path = f"dataset/{roll}"
         os.makedirs(dir_path, exist_ok=True)
 
         readme_path = os.path.join(dir_path, "README.txt")
         if not os.path.exists(readme_path):
             with open(readme_path, "w") as f:
                 f.write(
-                    f"Place 1-3 clear photos showing the face of {name} here as .jpg files.\n"
+                    f"Place 1-3 clear photos showing the face of {name} (Roll: {roll}) here as .jpg files.\n"
                 )
 
     print("Demo Data Seeded successfully!")

@@ -25,10 +25,15 @@
     </button>
 </div>
 
+<!-- Teacher Count -->
+<div class="glass-card p-3 mb-4">
+    <span class="text-secondary small"><i class="bi bi-info-circle me-1"></i> Total Teachers: <strong class="text-white">{{ teachers|length }}</strong></span>
+</div>
+
 <div class="glass-card p-0 overflow-hidden">
     <table class="table table-glass table-hover mb-0">
         <thead>
-            <tr><th>#</th><th>Name</th><th>Email</th><th></th></tr>
+            <tr><th>#</th><th>Name</th><th>Email</th><th>Subjects</th><th>Actions</th></tr>
         </thead>
         <tbody>
             {% for t in teachers %}
@@ -37,17 +42,25 @@
                 <td class="fw-semibold">{{ t.name }}</td>
                 <td><code>{{ t.email }}</code></td>
                 <td>
+                    {% if t.subject_count > 0 %}
+                        <span class="badge bg-success bg-opacity-25 text-success"><i class="bi bi-book me-1"></i>{{ t.subject_count }} subject{{ 's' if t.subject_count != 1 else '' }}</span>
+                    {% else %}
+                        <span class="badge bg-secondary bg-opacity-25 text-secondary">No subjects</span>
+                    {% endif %}
+                </td>
+                <td>
                     <form method="POST" style="display:inline;">
                         <input type="hidden" name="action" value="delete">
                         <input type="hidden" name="teacher_id" value="{{ t.teacher_id }}">
-                        <button type="submit" class="btn btn-sm" style="color:#f5576c;" onclick="return confirm('Delete this teacher?')">
+                        <button type="submit" class="btn btn-sm" style="color:#f5576c;" 
+                                onclick="return confirm('Delete {{ t.name }}? Their assigned subjects will become unassigned.')">
                             <i class="bi bi-trash"></i>
                         </button>
                     </form>
                 </td>
             </tr>
             {% else %}
-            <tr><td colspan="4" class="text-center text-secondary py-4">No teachers found. Add one above.</td></tr>
+            <tr><td colspan="5" class="text-center text-secondary py-4">No teachers found. Add one above.</td></tr>
             {% endfor %}
         </tbody>
     </table>
@@ -64,9 +77,25 @@
             <form method="POST">
                 <div class="modal-body">
                     <input type="hidden" name="action" value="add">
-                    <div class="mb-3"><label class="form-label small text-secondary">Full Name</label><input type="text" class="form-control" name="name" required></div>
-                    <div class="mb-3"><label class="form-label small text-secondary">Email</label><input type="email" class="form-control" name="email" required></div>
-                    <div class="mb-3"><label class="form-label small text-secondary">Password</label><input type="password" class="form-control" name="password" required></div>
+                    <div class="mb-3">
+                        <label class="form-label small text-secondary">Full Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="name" placeholder="e.g. Dr. Sharma" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small text-secondary">Email <span class="text-danger">*</span></label>
+                        <input type="email" class="form-control" name="email" placeholder="e.g. sharma@nitkkr.ac.in" required>
+                        <div class="form-text text-secondary mt-1">Use @nitkkr.ac.in domain. This is used for login.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small text-secondary">Password <span class="text-danger">*</span></label>
+                        <input type="password" class="form-control" name="password" required>
+                    </div>
+                    <div class="p-3 rounded-3" style="background:rgba(240,147,251,0.08);border:1px solid rgba(240,147,251,0.15);">
+                        <small class="text-secondary">
+                            <i class="bi bi-info-circle me-1" style="color:#f093fb;"></i>
+                            After adding a teacher, assign subjects to them from the <strong>Subjects</strong> page.
+                        </small>
+                    </div>
                 </div>
                 <div class="modal-footer border-0">
                     <button type="button" class="btn btn-outline-glow btn-sm" data-bs-dismiss="modal">Cancel</button>
