@@ -131,43 +131,67 @@ def manage_students():
             branch = request.form.get('branch')
             year = request.form.get('year')
             
-            # Check if roll_no already exists
-            existing = execute_query("SELECT student_id FROM students WHERE roll_no = %s", (roll_no,), fetch=True)
-            if existing:
-                flash(f"Student with roll no {roll_no} already exists!", "danger")
+            # Validate photo is uploaded
+            photos = request.files.getlist('photos')
+            valid_photos = [p for p in photos if p and p.filename and allowed_file(p.filename)]
+            if not valid_photos:
+                flash("Face photo is required! Please upload at least one clear face photo.", "danger")
             else:
-                # Insert student
-                execute_query("INSERT INTO students (name, roll_no, branch, year) VALUES (%s, %s, %s, %s)",
-                              (name, roll_no, branch, year), commit=True)
-                
-                # Handle face photo upload
-                photos = request.files.getlist('photos')
-                student_dir = os.path.join(DATASET_FOLDER, roll_no)
-                os.makedirs(student_dir, exist_ok=True)
-                
-                photo_count = 0
-                for photo in photos:
-                    if photo and photo.filename and allowed_file(photo.filename):
+                # Check if roll_no already exists
+                existing = execute_query("SELECT student_id FROM students WHERE roll_no = %s", (roll_no,), fetch=True)
+                if existing:
+                    flash(f"Student with roll no {roll_no} already exists!", "danger")
+                else:
+                    # Insert student into database
+                    execute_query("INSERT INTO students (name, roll_no, branch, year) VALUES (%s, %s, %s, %s)",
+                                  (name, roll_no, branch, year), commit=True)
+                    
+                    # Create dataset folder and save photos
+                    student_dir = os.path.join(DATASET_FOLDER, roll_no)
+                    os.makedirs(student_dir, exist_ok=True)
+                    
+                    photo_count = 0
+                    for photo in valid_photos:
                         ext = photo.filename.rsplit('.', 1)[1].lower()
                         photo_filename = f"{roll_no}_face_{photo_count + 1}.{ext}"
                         photo_path = os.path.join(student_dir, photo_filename)
                         photo.save(photo_path)
                         photo_count += 1
-                
-                # Try to auto-generate face encoding
-                if photo_count > 0:
-                    encoding = encode_single_student(roll_no)
-                    if encoding:
-                        student = execute_query("SELECT student_id FROM students WHERE roll_no = %s", (roll_no,), fetch=True)
-                        if student:
-                            encoding_json = json.dumps(encoding)
+                    
+                    # Write credentials to README.txt
+                    readme_path = os.path.join(student_dir, "README.txt")
+                    with open(readme_path, "w") as f:
+                        f.write(f"Student Credentials\n")
+                        f.write(f"===================\n")
+                        f.write(f"Name       : {name}\n")
+                        f.write(f"Roll No    : {roll_no}\n")
+                        f.write(f"Branch     : {branch}\n")
+                        f.write(f"Year       : {year}\n")
+                        f.write(f"Photos     : {photo_count}\n")
+                        f.write(f"Added On   : {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                        f.write(f"Login      : Use Roll No ({roll_no}) to login as Student\n")
+                    
+                    # Retrain model for ALL students (full retrain)
+                    retrain_success = 0
+                    retrain_fail = 0
+                    all_students = execute_query("SELECT student_id, name, roll_no FROM students", fetchall=True)
+                    for st in all_students:
+                        enc = encode_single_student(st['roll_no'])
+                        if enc:
+                            enc_json = json.dumps(enc)
                             execute_query("UPDATE students SET face_encoding = %s WHERE student_id = %s",
-                                         (encoding_json, student['student_id']), commit=True)
-                        flash(f"Student {name} ({roll_no}) added with face data ✅", "success")
-                    else:
-                        flash(f"Student {name} ({roll_no}) added. Face not detected in photo — retrain model or upload clearer photos.", "warning")
-                else:
-                    flash(f"Student {name} ({roll_no}) added without photo. Upload face photos and train the model.", "warning")
+                                         (enc_json, st['student_id']), commit=True)
+                            retrain_success += 1
+                        else:
+                            st_dir = os.path.join(DATASET_FOLDER, st['roll_no'])
+                            if os.path.isdir(st_dir) and any(f.lower().endswith(('.jpg','.jpeg','.png')) for f in os.listdir(st_dir)):
+                                retrain_fail += 1
+                    
+                    msg = f"Student {name} ({roll_no}) added with {photo_count} photo(s). "
+                    msg += f"Model retrained: {retrain_success} student(s) encoded."
+                    if retrain_fail > 0:
+                        msg += f" {retrain_fail} student(s) had photos but face not detected."
+                    flash(msg, "success" if retrain_fail == 0 else "warning")
                     
         elif action == 'delete':
             student_id = request.form.get('student_id')
