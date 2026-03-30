@@ -36,14 +36,14 @@
 
                 <table class="table table-glass table-hover mb-3">
                     <thead>
-                        <tr><th>#</th><th>Name</th><th>Roll No</th><th>Status</th></tr>
+                        <tr><th>#</th><th>Roll No</th><th>Name</th><th>Status</th></tr>
                     </thead>
                     <tbody>
                         {% for s in attendance_status %}
                         <tr>
                             <td>{{ loop.index }}</td>
-                            <td class="fw-semibold">{{ s.name }}</td>
-                            <td><code>{{ s.roll_no }}</code></td>
+                            <td class="fw-semibold"><code>{{ s.roll_no }}</code></td>
+                            <td>{{ s.name }}</td>
                             <td>
                                 <select name="status_{{ s.student_id }}" class="form-select form-select-sm" style="width:130px;">
                                     <option value="Present" {% if s.status == 'Present' %}selected{% endif %}>✅ Present</option>

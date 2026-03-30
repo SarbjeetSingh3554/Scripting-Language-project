@@ -3,34 +3,39 @@ from database import execute_query
 
 
 def create_demo_data():
-    names = ["Raj", "Rahul", "Sarbjeet", "Tripti", "Pallavi"]
+    # Student name -> roll number mapping
+    students_data = [
+        ("Tripti", "124102052"),
+        ("Pallavi", "124102053"),
+        ("Raj", "124102058"),
+        ("Rahul", "124102062"),
+        ("Sarbjeet", "124102064"),
+    ]
 
     # 1. Insert teacher
     execute_query(
-        "INSERT OR IGNORE INTO teachers (name, email, password) VALUES ('Demo Teacher', 'teacher@nit.edu', 'teacher123')",
+        "INSERT OR IGNORE INTO teachers (name, email, password) VALUES ('Demo Teacher', 'teacher@nitkkr.ac.in', 'teacher123')",
         commit=True,
     )
     teacher = execute_query(
-        "SELECT teacher_id FROM teachers WHERE email='teacher@nit.edu'", fetch=True
+        "SELECT teacher_id FROM teachers WHERE email='teacher@nitkkr.ac.in'", fetch=True
     )
     t_id = teacher["teacher_id"] if teacher else 1
 
-    # 2. Insert subjects
+    # 2. Insert subjects (with initial total_classes = 39)
     execute_query(
-        "INSERT OR IGNORE INTO subjects (subject_name, teacher_id) VALUES ('Machine Learning CS-501', %s)",
+        "INSERT OR IGNORE INTO subjects (subject_name, teacher_id, total_classes) VALUES ('Scripting Language', %s, 39)",
         (t_id,),
         commit=True,
     )
     execute_query(
-        "INSERT OR IGNORE INTO subjects (subject_name, teacher_id) VALUES ('Computer Networks CS-502', %s)",
+        "INSERT OR IGNORE INTO subjects (subject_name, teacher_id, total_classes) VALUES ('Database Management System', %s, 39)",
         (t_id,),
         commit=True,
     )
 
     # 3. Create students and their image datasets
-    for i, name in enumerate(names):
-        roll = f"120150{i+1}"
-
+    for name, roll in students_data:
         # Insert student to DB
         execute_query(
             "INSERT OR IGNORE INTO students (name, roll_no, branch, year) VALUES (%s, %s, 'CSE', 3)",
@@ -50,11 +55,15 @@ def create_demo_data():
                 )
 
     print("Demo Data Seeded successfully!")
+    print("\nStudents added:")
+    for name, roll in students_data:
+        print(f"  {roll} - {name}")
+    print("\nSubjects: Scripting Language, Database Management System")
+    print("Teacher login: teacher@nitkkr.ac.in / teacher123")
     print("\nIMPORTANT:")
     print(
-        "To make the Face Recognition work, you MUST place real face images in the 'dataset' subfolders:"
+        "To make the Face Recognition work, you MUST place real face images in the 'dataset' subfolders."
     )
-    print(", ".join(names))
     print(
         "Once images are placed, go to the Admin portal and click 'Train Model'."
     )

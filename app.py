@@ -1,5 +1,6 @@
 import os
 import json
+import math
 import numpy as np
 from datetime import datetime
 from werkzeug.utils import secure_filename
@@ -58,6 +59,7 @@ def login(role):
             if student:
                 session['user_id'] = student['student_id']
                 session['name'] = student['name']
+                session['roll_no'] = student['roll_no']
                 session['role'] = 'student'
                 return redirect(url_for('student_dashboard'))
                 
@@ -142,8 +144,7 @@ def train_model():
         for roll_no, encoding in encodings.items():
             # Convert encoding back to JSON string to save in DB
             encoding_json = json.dumps(encoding)
-            # Find student by roll_no (assuming folders are named by roll_no or name)
-            # Actually, the user asked folders named raj, rahul etc. Let's find by name for demo
+            # Find student by name (folder names are student names)
             student = execute_query("SELECT student_id FROM students WHERE LOWER(name) = %s", (roll_no.lower(),), fetch=True)
             if student:
                 execute_query("UPDATE students SET face_encoding = %s WHERE student_id = %s", 
@@ -210,8 +211,8 @@ def mark_attendance():
             # Process image
             recognized_names, annotated_file = recognize_faces(filepath, known_student_names, known_encodings)
             
-            # Prepare data for review screen
-            all_students = execute_query("SELECT * FROM students", fetchall=True)
+            # Prepare data for review screen — show by roll_no
+            all_students = execute_query("SELECT * FROM students ORDER BY roll_no ASC", fetchall=True)
             
             attendance_status = []
             for student in all_students:
@@ -258,6 +259,24 @@ def save_attendance():
     flash(f"Attendance saved successfully for {success_count} students.", "success")
     return redirect(url_for('teacher_dashboard'))
 
+@app.route('/teacher/cancel_class', methods=['POST'])
+def cancel_class():
+    """When a teacher cancels a class, decrease total_classes for that subject by 1."""
+    if session.get('role') != 'teacher': return redirect(url_for('login', role='teacher'))
+    
+    subject_id = request.form.get('subject_id')
+    if subject_id:
+        # Decrease total_classes by 1 (minimum 0)
+        execute_query(
+            "UPDATE subjects SET total_classes = MAX(total_classes - 1, 0) WHERE subject_id = %s",
+            (subject_id,), commit=True
+        )
+        subject = execute_query("SELECT subject_name, total_classes FROM subjects WHERE subject_id = %s", (subject_id,), fetch=True)
+        if subject:
+            flash(f"Class cancelled for {subject['subject_name']}. Total classes now: {subject['total_classes']}", "success")
+    
+    return redirect(url_for('teacher_dashboard'))
+
 # =========================
 # Student Routes
 # =========================
@@ -266,12 +285,66 @@ def student_dashboard():
     if session.get('role') != 'student': return redirect(url_for('login', role='student'))
     
     student_id = session.get('user_id')
+    roll_no = session.get('roll_no', '')
     
-    # Fetch overall attendance percentage
-    total_classes = execute_query("SELECT COUNT(*) as count FROM attendance WHERE student_id = %s", (student_id,), fetch=True)['count']
-    attended_classes = execute_query("SELECT COUNT(*) as count FROM attendance WHERE student_id = %s AND status = 'Present'", (student_id,), fetch=True)['count']
+    # Fetch all subjects
+    all_subjects = execute_query("SELECT * FROM subjects", fetchall=True)
     
-    percentage = (attended_classes / total_classes * 100) if total_classes > 0 else 0
+    subject_stats = []
+    overall_attended = 0
+    overall_total = 0
+    
+    for sub in all_subjects:
+        sub_id = sub['subject_id']
+        total_classes = sub.get('total_classes', 39) or 39
+        
+        # Count attended classes for this student in this subject
+        attended = execute_query(
+            "SELECT COUNT(*) as count FROM attendance WHERE student_id = %s AND subject_id = %s AND status = 'Present'",
+            (student_id, sub_id), fetch=True
+        )['count']
+        
+        # Calculate percentage
+        percentage = round((attended / total_classes * 100), 1) if total_classes > 0 else 0
+        
+        # Calculate classes needed to maintain 75%
+        # We need: (attended + x) / (total_classes + x) >= 0.75  (if attending future classes)
+        # But simpler: how many more classes to attend out of remaining to reach 75%
+        # Required attended for 75%: ceil(0.75 * total_classes)
+        required_for_75 = math.ceil(0.75 * total_classes)
+        classes_needed = max(required_for_75 - attended, 0)
+        
+        # Remaining classes (total - classes marked so far)
+        classes_marked = execute_query(
+            "SELECT COUNT(*) as count FROM attendance WHERE student_id = %s AND subject_id = %s",
+            (student_id, sub_id), fetch=True
+        )['count']
+        remaining = max(total_classes - classes_marked, 0)
+        
+        # Can the student still reach 75%?
+        can_reach_75 = (attended + remaining) >= required_for_75
+        
+        # How many classes can student skip (bunk) and still have 75%
+        classes_can_skip = max(remaining - classes_needed, 0) if can_reach_75 else 0
+        
+        subject_stats.append({
+            'subject_name': sub['subject_name'],
+            'subject_id': sub_id,
+            'total_classes': total_classes,
+            'attended': attended,
+            'classes_marked': classes_marked,
+            'remaining': remaining,
+            'percentage': percentage,
+            'required_for_75': required_for_75,
+            'classes_needed': classes_needed,
+            'can_reach_75': can_reach_75,
+            'classes_can_skip': classes_can_skip,
+        })
+        
+        overall_attended += attended
+        overall_total += total_classes
+    
+    overall_percentage = round((overall_attended / overall_total * 100), 1) if overall_total > 0 else 0
     
     # Fetch detailed recent attendance
     history = execute_query("""
@@ -279,14 +352,16 @@ def student_dashboard():
         FROM attendance a 
         JOIN subjects s ON a.subject_id = s.subject_id 
         WHERE a.student_id = %s 
-        ORDER BY a.date DESC LIMIT 10
+        ORDER BY a.date DESC LIMIT 15
     """, (student_id,), fetchall=True)
     
     return render_template('student/dashboard.html', 
-                           percentage=round(percentage, 1), 
-                           history=history,
-                           total=total_classes,
-                           attended=attended_classes)
+                           roll_no=roll_no,
+                           subject_stats=subject_stats,
+                           overall_percentage=overall_percentage,
+                           overall_attended=overall_attended,
+                           overall_total=overall_total,
+                           history=history)
 
 if __name__ == '__main__':
     # Ensure upload folder exists

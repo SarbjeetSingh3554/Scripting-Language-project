@@ -42,16 +42,19 @@
     </div>
 </div>
 
-<div class="glass-card p-4">
+<div class="glass-card p-4 mb-4">
     <h5 class="fw-bold mb-3"><i class="bi bi-journal-text me-2" style="color:#667eea;"></i>Assigned Subjects</h5>
     {% if subjects %}
     <div class="row g-3">
         {% for sub in subjects %}
         <div class="col-md-6">
             <div class="p-3 rounded-3" style="background:rgba(102,126,234,0.08);border:1px solid rgba(102,126,234,0.15);">
-                <div class="d-flex align-items-center gap-2">
-                    <i class="bi bi-book-half" style="color:#667eea;"></i>
-                    <span class="fw-semibold">{{ sub.subject_name }}</span>
+                <div class="d-flex align-items-center justify-content-between">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bi bi-book-half" style="color:#667eea;"></i>
+                        <span class="fw-semibold">{{ sub.subject_name }}</span>
+                    </div>
+                    <span class="badge bg-info bg-opacity-25 text-info">{{ sub.total_classes }} classes</span>
                 </div>
             </div>
         </div>
@@ -59,6 +62,32 @@
     </div>
     {% else %}
     <p class="text-secondary mb-0">No subjects assigned yet. Contact the admin.</p>
+    {% endif %}
+</div>
+
+<!-- Cancel Class Section -->
+<div class="glass-card p-4">
+    <h5 class="fw-bold mb-3"><i class="bi bi-x-circle me-2" style="color:#f5576c;"></i>Cancel a Class</h5>
+    <p class="text-secondary small mb-3">If a class is cancelled, select the subject below to decrease its total class count by 1.</p>
+    {% if subjects %}
+    <div class="row g-3">
+        {% for sub in subjects %}
+        <div class="col-md-6">
+            <form method="POST" action="{{ url_for('cancel_class') }}" class="d-flex align-items-center gap-2">
+                <input type="hidden" name="subject_id" value="{{ sub.subject_id }}">
+                <div class="flex-grow-1 p-2 rounded-3" style="background:rgba(245,87,108,0.08);border:1px solid rgba(245,87,108,0.15);">
+                    <span class="fw-semibold small">{{ sub.subject_name }}</span>
+                    <small class="text-secondary ms-2">({{ sub.total_classes }} classes)</small>
+                </div>
+                <button type="submit" class="btn btn-sm" style="color:#f5576c;border:1px solid rgba(245,87,108,0.3);" onclick="return confirm('Cancel a class for {{ sub.subject_name }}? This will reduce total classes by 1.')">
+                    <i class="bi bi-dash-circle me-1"></i> Cancel
+                </button>
+            </form>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-secondary mb-0">No subjects to cancel classes for.</p>
     {% endif %}
 </div>
 {% endblock %}

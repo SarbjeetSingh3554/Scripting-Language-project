@@ -8,7 +8,7 @@
             <i class="bi bi-mortarboard me-2" style="color:#43e97b;"></i>Student Portal
         </a>
         <div class="d-flex align-items-center gap-2">
-            <span class="text-secondary small me-2"><i class="bi bi-person me-1"></i>{{ session.name }}</span>
+            <span class="text-secondary small me-2"><i class="bi bi-person me-1"></i>{{ roll_no }} — {{ session.name }}</span>
             <a href="{{ url_for('logout') }}" class="btn btn-sm" style="color:#f5576c;"><i class="bi bi-box-arrow-right me-1"></i> Logout</a>
         </div>
     </div>
@@ -16,42 +16,95 @@
 {% endblock %}
 
 {% block content %}
-<h3 class="fw-bold mb-4"><i class="bi bi-bar-chart me-2" style="color:#43e97b;"></i>Your Attendance</h3>
+<h3 class="fw-bold mb-4"><i class="bi bi-bar-chart me-2" style="color:#43e97b;"></i>Your Attendance — {{ roll_no }}</h3>
 
+<!-- Overall Stats -->
 <div class="row g-4 mb-4">
     <div class="col-md-4">
         <div class="stat-card text-center">
-            <span class="text-secondary small fw-semibold text-uppercase d-block mb-2">Attendance</span>
-            <div class="stat-value">{{ percentage }}%</div>
+            <span class="text-secondary small fw-semibold text-uppercase d-block mb-2">Overall Attendance</span>
+            <div class="stat-value">{{ overall_percentage }}%</div>
         </div>
     </div>
     <div class="col-md-4">
         <div class="stat-card text-center">
-            <span class="text-secondary small fw-semibold text-uppercase d-block mb-2">Attended</span>
-            <div class="stat-value">{{ attended }}</div>
+            <span class="text-secondary small fw-semibold text-uppercase d-block mb-2">Total Attended</span>
+            <div class="stat-value">{{ overall_attended }}</div>
         </div>
     </div>
     <div class="col-md-4">
         <div class="stat-card text-center">
             <span class="text-secondary small fw-semibold text-uppercase d-block mb-2">Total Classes</span>
-            <div class="stat-value">{{ total }}</div>
+            <div class="stat-value">{{ overall_total }}</div>
         </div>
     </div>
 </div>
 
-<!-- Progress bar -->
+<!-- Overall Progress bar -->
 <div class="glass-card p-4 mb-4">
     <h6 class="fw-bold mb-2">Overall Progress</h6>
     <div class="progress" style="height:12px;border-radius:8px;background:rgba(255,255,255,0.05);">
-        <div class="progress-bar" role="progressbar" style="width:{{ percentage }}%;border-radius:8px;background:{% if percentage >= 75 %}linear-gradient(90deg,#43e97b,#38f9d7){% elif percentage >= 50 %}linear-gradient(90deg,#f6d365,#fda085){% else %}linear-gradient(90deg,#f5576c,#f093fb){% endif %};"
-             aria-valuenow="{{ percentage }}" aria-valuemin="0" aria-valuemax="100">
+        <div class="progress-bar" role="progressbar" style="width:{{ overall_percentage }}%;border-radius:8px;background:{% if overall_percentage >= 75 %}linear-gradient(90deg,#43e97b,#38f9d7){% elif overall_percentage >= 50 %}linear-gradient(90deg,#f6d365,#fda085){% else %}linear-gradient(90deg,#f5576c,#f093fb){% endif %};"
+             aria-valuenow="{{ overall_percentage }}" aria-valuemin="0" aria-valuemax="100">
         </div>
     </div>
     <small class="text-secondary mt-1 d-block">
-        {% if percentage >= 75 %}Great attendance! Keep it up 🎉{% elif percentage >= 50 %}Needs improvement – aim for 75%{% else %}Low attendance – please attend more classes{% endif %}
+        {% if overall_percentage >= 75 %}Great attendance! Keep it up 🎉{% elif overall_percentage >= 50 %}Needs improvement – aim for 75%{% else %}Low attendance – please attend more classes{% endif %}
     </small>
 </div>
 
+<!-- Per-Subject Breakdown -->
+<h5 class="fw-bold mb-3"><i class="bi bi-journal-bookmark me-2" style="color:#667eea;"></i>Subject-wise Breakdown</h5>
+<div class="row g-4 mb-4">
+    {% for sub in subject_stats %}
+    <div class="col-md-6">
+        <div class="glass-card p-4">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+                <h6 class="fw-bold mb-0">
+                    <i class="bi bi-book-half me-2" style="color:#667eea;"></i>{{ sub.subject_name }}
+                </h6>
+                <span class="badge {% if sub.percentage >= 75 %}bg-success bg-opacity-25 text-success{% elif sub.percentage >= 50 %}bg-warning bg-opacity-25 text-warning{% else %}bg-danger bg-opacity-25 text-danger{% endif %}" style="font-size:0.9rem;">
+                    {{ sub.percentage }}%
+                </span>
+            </div>
+            
+            <!-- Progress bar -->
+            <div class="progress mb-3" style="height:8px;border-radius:6px;background:rgba(255,255,255,0.05);">
+                <div class="progress-bar" role="progressbar" style="width:{{ sub.percentage }}%;border-radius:6px;background:{% if sub.percentage >= 75 %}linear-gradient(90deg,#43e97b,#38f9d7){% elif sub.percentage >= 50 %}linear-gradient(90deg,#f6d365,#fda085){% else %}linear-gradient(90deg,#f5576c,#f093fb){% endif %};"></div>
+            </div>
+            
+            <div class="row text-center mb-3">
+                <div class="col-4">
+                    <small class="text-secondary d-block">Attended</small>
+                    <span class="fw-bold text-success">{{ sub.attended }}</span>
+                </div>
+                <div class="col-4">
+                    <small class="text-secondary d-block">Total</small>
+                    <span class="fw-bold">{{ sub.total_classes }}</span>
+                </div>
+                <div class="col-4">
+                    <small class="text-secondary d-block">Remaining</small>
+                    <span class="fw-bold text-info">{{ sub.remaining }}</span>
+                </div>
+            </div>
+            
+            <!-- 75% requirement info -->
+            <div class="p-3 rounded-3" style="background:rgba(102,126,234,0.08);border:1px solid rgba(102,126,234,0.15);">
+                {% if sub.percentage >= 75 %}
+                    <small class="d-block"><i class="bi bi-check-circle text-success me-1"></i> <strong>75% maintained!</strong> You can skip up to <strong>{{ sub.classes_can_skip }}</strong> more class{{ 'es' if sub.classes_can_skip != 1 else '' }}.</small>
+                {% elif sub.can_reach_75 %}
+                    <small class="d-block"><i class="bi bi-exclamation-triangle text-warning me-1"></i> Need to attend <strong>{{ sub.classes_needed }}</strong> more class{{ 'es' if sub.classes_needed != 1 else '' }} out of {{ sub.remaining }} remaining for 75%.</small>
+                {% else %}
+                    <small class="d-block"><i class="bi bi-x-circle text-danger me-1"></i> <strong>Cannot reach 75%</strong> even with perfect attendance in remaining {{ sub.remaining }} classes.</small>
+                {% endif %}
+                <small class="text-secondary d-block mt-1">Required for 75%: {{ sub.required_for_75 }} classes</small>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Recent Records -->
 <div class="glass-card p-4">
     <h5 class="fw-bold mb-3"><i class="bi bi-clock-history me-2" style="color:#667eea;"></i>Recent Records</h5>
     {% if history %}

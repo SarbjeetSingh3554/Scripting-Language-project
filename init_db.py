@@ -48,6 +48,7 @@ def init_database():
             subject_id INTEGER PRIMARY KEY AUTOINCREMENT,
             subject_name TEXT NOT NULL,
             teacher_id INTEGER,
+            total_classes INTEGER DEFAULT 39,
             FOREIGN KEY (teacher_id) REFERENCES teachers(teacher_id) ON DELETE SET NULL
         )
         """)
@@ -72,6 +73,13 @@ def init_database():
         INSERT OR IGNORE INTO admins (username, password)
         VALUES ('admin', 'admin123')
         """)
+
+        # Try to add total_classes column if table already exists without it
+        try:
+            cursor.execute("ALTER TABLE subjects ADD COLUMN total_classes INTEGER DEFAULT 39")
+            print("Added total_classes column to existing subjects table.")
+        except sqlite3.OperationalError:
+            pass  # Column already exists
 
         conn.commit()
         print("Database initialization successful!")
